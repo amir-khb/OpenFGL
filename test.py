@@ -10,7 +10,8 @@ import traceback
 
 def main():
     """
-    Main function to recreate Table 7: Subgraph-FL test accuracy (%)
+    Main function to run FedALA on all specified datasets.
+    (Modified from original Table 7 recreation)
     """
     args = config.args
 
@@ -30,36 +31,26 @@ def main():
     args.num_layers = 2
     args.dropout = 0.5
 
-    # Datasets from Table 7
+    # --- MODIFICATION ---
+    # Datasets from the original test.py
     datasets = [
-        # "Cora",
-        # "CiteSeer",
-        # "PubMed",
+        "Cora",
+        "CiteSeer",
+        "PubMed",
         "Photo",
         "Computers",
-        # "ogbn-products",  # Products in table
+        "ogbn-products",  # Products in table
         "Chameleon",
-        # "Actor",
-        # "Amazon-ratings"  # Ratings in table
+        "Actor",
+        "Amazon-ratings"  # Ratings in table
     ]
 
-    # Algorithms from Table 7
+    # --- MODIFICATION ---
+    # Algorithm hardcoded to run FedALA only
     algorithms = {
-        # "GCN-Local": ("isolate", ["gcn"]),
-        # "GAT-Local": ("isolate", ["gat"]),
-        # "FedAvg": ("fedavg", ["gcn"]),
-        # "FedDC": ("feddc", ["gcn"]),
-        # "FedProto": ("fedproto", ["gcn"]),
-        # "FedTGP": ("fedtgp", ["gcn"]),
-        # "FedSage+": ("fedsage_plus", ["gcn"]),
-        # "FedGTA": ("fedgta", ["gcn"]),
-        # "Fed-PUB": ("fedpub", ["gcn"]),
-        # "FGSSL": ("fgssl", ["gcn"]),
-        # "FedGL": ("fedgl", ["gcn"]),
-        # "AdaFGL": ("adafgl", ["gcn"]),
-        "FGGP": ("fggp", ["gcn"]),
-        # "FedTAD": ("fedtad", ["gcn"])
+        "FedALA": ("fedala", ["gcn"]),
     }
+    # --- END MODIFICATION ---
 
     # Number of runs - matching paper (3 runs instead of 5)
     num_runs = 3
@@ -68,7 +59,7 @@ def main():
     results = {alg: {dataset: [] for dataset in datasets} for alg in algorithms.keys()}
 
     # Create output directory
-    output_dir = f"table7_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    output_dir = f"fedala_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Run experiments
@@ -81,11 +72,9 @@ def main():
             print(f"Running: {alg_name} on {dataset}")
             print(f"{'=' * 80}")
 
-            # Skip OOM cases (based on table)
-            if dataset == "ogbn-products" and alg_name in ["FGSSL", "FedGL", "AdaFGL", "FGGP"]:
-                print(f"Skipping {alg_name} on {dataset} (OOM expected)")
-                results[alg_name][dataset] = "OOM"
-                continue
+            # --- MODIFICATION ---
+            # Removed OOM skip logic, as we only run FedALA
+            # --- END MODIFICATION ---
 
             for run in range(num_runs):
                 experiment_count += 1
@@ -244,19 +233,19 @@ def create_table(results, datasets, algorithms, output_dir):
     df = pd.DataFrame(table_data, index=datasets).T
 
     # Save to CSV
-    csv_path = os.path.join(output_dir, "table7_results.csv")
+    csv_path = os.path.join(output_dir, "fedala_results.csv")
     df.to_csv(csv_path)
     print(f"\n✓ Table saved to: {csv_path}")
 
     # Print table
     print("\n" + "=" * 100)
-    print("Table 7: Subgraph-FL test accuracy (%)")
+    print("FedALA Test Accuracy (%)")
     print("=" * 100)
     print(df.to_string())
     print("=" * 100)
 
     # Save formatted LaTeX table
-    latex_path = os.path.join(output_dir, "table7_latex.txt")
+    latex_path = os.path.join(output_dir, "fedala_latex.txt")
     with open(latex_path, 'w') as f:
         f.write(df.to_latex())
     print(f"✓ LaTeX table saved to: {latex_path}")
