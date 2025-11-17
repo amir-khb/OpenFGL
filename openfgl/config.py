@@ -17,7 +17,7 @@ supported_graph_fl_task = ["graph_cls", "graph_reg"]
 supported_subgraph_fl_task = ["node_cls", "link_pred", "node_clust"]
 
 
-supported_fl_algorithm = ["isolate", "fedavg", "fedprox", "scaffold", "moon", "feddc", "fedproto", "fedtgp", "fedpub", "fedstar", "fedgta", "fedtad", "gcfl_plus", "fedsage_plus", "adafgl", "feddep", "fggp", "fgssl", "fedgl"]
+supported_fl_algorithm = ["isolate", "fedavg", "fedprox", "scaffold", "moon", "feddc", "fedproto", "fedtgp", "fedpub", "fedstar", "fedgta", "fedtad", "gcfl_plus", "fedsage_plus", "adafgl", "feddep", "fggp", "fgssl", "fedgl", "fedala"]
 
 
 supported_metrics = ["accuracy", "precision", "f1", "recall", "auc", "ap", "clustering_accuracy", "nmi", "ari"]
@@ -108,6 +108,14 @@ parser.add_argument("--log_root", type=str, default=None)
 parser.add_argument("--log_name", type=str, default=None)
 parser.add_argument("--comm_cost", type=bool, default=False)
 parser.add_argument("--model_param", type=bool, default=False)
+
+# Add FedALA-specific arguments
+parser.add_argument("--ala_eta", type=float, default=1.0,
+                   help="Learning rate for ALA weight learning")
+parser.add_argument("--ala_rand_percent", type=int, default=80,
+                   help="Percentage of training data to sample for ALA")
+parser.add_argument("--ala_layer_idx", type=int, default=2,
+                   help="Number of layers to apply ALA (from top)")
 
 
 
