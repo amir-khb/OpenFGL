@@ -224,11 +224,37 @@ def write_log(args, log):
 
 
 def setup_seed(seed):
+    """
+    Sets the seed for full deterministic behavior in PyTorch, NumPy, and Python's random module.
+    """
+    # Set seed for PyTorch on CPU
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+
+    # Set seed for NumPy
     np.random.seed(seed)
+
+    # Set seed for Python's built-in random module
     random.seed(seed)
-    torch.backends.cudnn.deterministic = True
+
+    # If you are using CUDA (GPU)
+    if torch.cuda.is_available():
+        # Set seed for PyTorch on all GPUs
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # for multi-GPU setups
+
+        # --- These are the crucial additions ---
+
+        # 1. Make cuDNN use deterministic algorithms
+        torch.backends.cudnn.deterministic = True
+
+        # 2. Disable cuDNN's benchmarking mode
+        # Benchmarking finds the fastest algorithm, but that choice can be
+        # non-deterministic, even if the algorithms themselves are deterministic.
+        torch.backends.cudnn.benchmark = False
+
+        # 3. Enforce deterministic algorithms in PyTorch (starting from 1.7)
+        # This will raise an error if a non-deterministic operation is used.
+        torch.use_deterministic_algorithms(True)
 
 
 def add_connections(data, num_con):
