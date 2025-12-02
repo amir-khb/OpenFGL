@@ -164,7 +164,7 @@ def main():
     args = config.args
 
     # Configuration
-    args.root = "./dataset"
+    args.root = "/home/amirreza/ScalableProject/OpenFGL/dataset"
     args.scenario = "subgraph_fl"
     args.simulation_mode = "subgraph_fl_louvain"
     args.num_clients = 5
@@ -176,10 +176,10 @@ def main():
     args.dropout = 0.5
 
     # FedALA specific
-    args.ala_layer_idx = 2
+    args.ala_layer_idx = 4
 
     # NewALA specific
-    args.newala_layer_idx = 2
+    args.newala_layer_idx = 4
     args.newala_rank = 4
 
     print("=" * 80)
