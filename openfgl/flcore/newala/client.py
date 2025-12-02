@@ -248,15 +248,22 @@ class LoRA_CAAA:
             self.B_matrices = []
 
             for param in params_p:
-                # Initialize W to ones, then decompose
-                W_init = torch.ones_like(param.data).to(self.device)
-                A, B = self.low_rank_decomposition(W_init)
-                self.A_matrices.append(A)
-                self.B_matrices.append(B)
+                # Check if parameter is 2D (weight matrix) or 1D (bias vector)
+                if param.dim() >= 2:
+                    # For 2D+ parameters, use low-rank decomposition
+                    W_init = torch.ones_like(param.data).to(self.device)
+                    A, B = self.low_rank_decomposition(W_init)
+                    self.A_matrices.append(A)
+                    self.B_matrices.append(B)
+                else:
+                    # For 1D parameters (biases), use scalar weights instead
+                    # Store None to indicate this parameter uses simple weighting
+                    self.A_matrices.append(None)
+                    self.B_matrices.append(None)
 
-        # Create optimizer for A and B matrices
-        all_matrices = self.A_matrices + self.B_matrices
-        optimizer = torch.optim.SGD(all_matrices, lr=self.eta)
+        # Create optimizer for A and B matrices (filter out None values for 1D parameters)
+        all_matrices = [m for m in (self.A_matrices + self.B_matrices) if m is not None]
+        optimizer = torch.optim.SGD(all_matrices, lr=self.eta) if all_matrices else None
 
         # Ensure data is on the correct device
         self.data_obj = self.data_obj.to(self.device)
@@ -280,31 +287,45 @@ class LoRA_CAAA:
 
             # Compute aggregation weights W = σ(A · B^T) and apply trust coefficient
             W_list = []
-            for A, B in zip(self.A_matrices, self.B_matrices):
-                # W = σ(A · B^T)
-                W = torch.sigmoid(torch.matmul(A, B.T))
+            for param, A, B in zip(params_p, self.A_matrices, self.B_matrices):
+                if A is not None and B is not None:
+                    # For 2D parameters: W = σ(A · B^T)
+                    W = torch.sigmoid(torch.matmul(A, B.T))
+                else:
+                    # For 1D parameters: use uniform weights (fully trust the aggregation)
+                    W = torch.ones_like(param.data).to(self.device)
                 W_list.append(W)
 
             # Update temp model parameters: θ_init = θ_l + β · [(θ_g - θ_l) ⊙ W]
             for param_t, param, param_g, W in zip(params_tp, params_p, params_gp, W_list):
-                param_t.data = param.data + beta * ((param_g.data - param.data) * W.T)
+                if param.dim() >= 2:
+                    param_t.data = param.data + beta * ((param_g.data - param.data) * W.T)
+                else:
+                    # For 1D parameters, W is already the right shape
+                    param_t.data = param.data + beta * ((param_g.data - param.data) * W)
 
             # Compute task loss
-            optimizer.zero_grad()
+            if optimizer is not None:
+                optimizer.zero_grad()
             _, output = model_t(self.data_obj)
             task_loss = self.loss(output[rand_mask], self.data_obj.y[rand_mask])
 
-            # Compute entropy regularization
-            reg_loss = self.compute_entropy_regularization(W_list)
+            # Compute entropy regularization (only for 2D parameters with A, B matrices)
+            W_list_2d = [W for W, A in zip(W_list, self.A_matrices) if A is not None]
+            reg_loss = self.compute_entropy_regularization(W_list_2d) if W_list_2d else 0.0
 
             # Total loss: L_task - λ R(W)
             # Note: We want to maximize R(W), so we subtract it
-            total_loss = task_loss - self.lambda_reg * reg_loss
+            if isinstance(reg_loss, torch.Tensor):
+                total_loss = task_loss - self.lambda_reg * reg_loss
+            else:
+                total_loss = task_loss
 
             total_loss.backward()
 
             # Update A and B matrices
-            optimizer.step()
+            if optimizer is not None:
+                optimizer.step()
 
             losses.append(task_loss.item())
             cnt += 1
@@ -329,8 +350,14 @@ class LoRA_CAAA:
             beta = self.compute_trust_coefficient(entropy)
 
             for param, param_g, A, B in zip(params_p, params_gp, self.A_matrices, self.B_matrices):
-                W = torch.sigmoid(torch.matmul(A, B.T))
-                param.data = param.data + beta * ((param_g.data - param.data) * W.T)
+                if A is not None and B is not None:
+                    # For 2D parameters: W = σ(A · B^T)
+                    W = torch.sigmoid(torch.matmul(A, B.T))
+                    param.data = param.data + beta * ((param_g.data - param.data) * W.T)
+                else:
+                    # For 1D parameters: use uniform weights
+                    W = torch.ones_like(param.data).to(self.device)
+                    param.data = param.data + beta * ((param_g.data - param.data) * W)
 
 
 class NewALAClient(BaseClient):
