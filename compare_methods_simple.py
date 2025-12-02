@@ -149,8 +149,8 @@ def main():
         try:
             model = load_node_edge_level_default_model(
                 args,
-                num_features=num_features,
-                num_classes=num_classes
+                input_dim=num_features,
+                output_dim=num_classes
             )
 
             total_params, trainable_params = count_parameters(model)
