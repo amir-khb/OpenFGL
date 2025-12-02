@@ -21,7 +21,8 @@ def estimate_ala_parameters(model, layer_idx):
     for i, param in enumerate(params_p):
         param_count = param.numel()
         total += param_count
-        print(f"    [{len(params)-layer_idx+i}] Shape: {tuple(param.shape):<20} Params: {param_count:>8,}")
+        shape_str = str(tuple(param.shape))
+        print(f"    [{len(params)-layer_idx+i}] Shape: {shape_str:<20} Params: {param_count:>8,}")
 
     print(f"  FedALA algo params: {total:,}")
     return total
@@ -35,6 +36,7 @@ def estimate_newala_parameters(model, layer_idx, rank):
     print(f"\n  Parameters included (last {layer_idx} tensors):")
     total = 0
     for i, param in enumerate(params_p):
+        shape_str = str(tuple(param.shape))
         if param.dim() >= 2:
             if param.dim() == 2:
                 m, n = param.shape
@@ -45,10 +47,10 @@ def estimate_newala_parameters(model, layer_idx, rank):
             r = min(rank, min(m, n))
             lora_params = n * r + m * r
             total += lora_params
-            print(f"    [{len(params)-layer_idx+i}] Shape: {tuple(param.shape):<20} " +
+            print(f"    [{len(params)-layer_idx+i}] Shape: {shape_str:<20} " +
                   f"LoRA: {n}×{r} + {m}×{r} = {lora_params:>8,}")
         else:
-            print(f"    [{len(params)-layer_idx+i}] Shape: {tuple(param.shape):<20} " +
+            print(f"    [{len(params)-layer_idx+i}] Shape: {shape_str:<20} " +
                   f"(1D - uses uniform weights, 0 params)")
 
     print(f"  NewALA algo params: {total:,}")
@@ -102,7 +104,8 @@ def main():
         param_count = param.numel()
         total_params += param_count
         param_type = "Weight" if param.dim() >= 2 else "Bias"
-        print(f"  [{i}] {param_type:<8} Shape: {tuple(param.shape):<20} Params: {param_count:>8,}")
+        shape_str = str(tuple(param.shape))
+        print(f"  [{i}] {param_type:<8} Shape: {shape_str:<20} Params: {param_count:>8,}")
 
     print(f"\n  TOTAL BASE PARAMS: {total_params:,}")
 
