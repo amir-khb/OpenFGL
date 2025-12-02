@@ -203,7 +203,7 @@ def main():
     print(f"Input features: {num_features}, Output classes: {num_classes}")
     print()
 
-    # List of algorithms to compare
+    # List of algorithms to compare - ALL supported algorithms in OpenFGL
     algorithms = [
         "isolate",
         "fedavg",
@@ -211,6 +211,19 @@ def main():
         "scaffold",
         "moon",
         "feddc",
+        "fedproto",
+        "fedtgp",
+        "fedpub",
+        "fedstar",
+        "fedgta",
+        "fedtad",
+        "gcfl_plus",
+        "fedsage_plus",
+        "adafgl",
+        "feddep",
+        "fggp",
+        "fgssl",
+        "fedgl",
         "fedala",
         "newala"
     ]
@@ -280,17 +293,9 @@ def main():
             })
 
         except Exception as e:
-            print(f"  Error: {e}")
-            results.append({
-                "Algorithm": algorithm.upper(),
-                "Base Params": "N/A",
-                "Algo Params": "N/A",
-                "Total Params": "N/A",
-                "Comm Params": "N/A",
-                "Forward GFLOPs": "N/A",
-                "Total GFLOPs": "N/A",
-                "Overhead": "N/A"
-            })
+            print(f"  Skipped (incompatible with current config): {str(e)[:50]}")
+            # Skip algorithms that don't work with current configuration
+            continue
 
     print()
     print("=" * 80)

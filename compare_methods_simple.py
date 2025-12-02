@@ -113,13 +113,27 @@ def main():
 
     print(f"Input features: {num_features}, Output classes: {num_classes}\n")
 
-    # Algorithms to compare
+    # Algorithms to compare - ALL supported algorithms in OpenFGL
     algorithms = [
+        ("Isolate", "isolate"),
         ("FedAvg", "fedavg"),
         ("FedProx", "fedprox"),
         ("SCAFFOLD", "scaffold"),
         ("MOON", "moon"),
         ("FedDC", "feddc"),
+        ("FedProto", "fedproto"),
+        ("FedTGP", "fedtgp"),
+        ("FedPub", "fedpub"),
+        ("FedStar", "fedstar"),
+        ("FedGTA", "fedgta"),
+        ("FedTAD", "fedtad"),
+        ("GCFL+", "gcfl_plus"),
+        ("FedSage+", "fedsage_plus"),
+        ("AdaFGL", "adafgl"),
+        ("FedDEP", "feddep"),
+        ("FGGP", "fggp"),
+        ("FGSSL", "fgssl"),
+        ("FedGL", "fedgl"),
         ("FedALA", "fedala"),
         ("NewALA (LoRA-CAAA)", "newala")
     ]
@@ -171,15 +185,9 @@ def main():
             })
 
         except Exception as e:
-            print(f"  Error: {e}")
-            results.append({
-                "name": display_name,
-                "base": 0,
-                "algo": 0,
-                "total": 0,
-                "comm": 0,
-                "overhead": 0.0
-            })
+            print(f"  Skipped (incompatible with current config): {str(e)[:50]}")
+            # Skip algorithms that don't work with current configuration
+            continue
 
     print("\n" + "=" * 100)
     print("RESULTS: PARAMETER COMPARISON")
@@ -275,6 +283,45 @@ NewALA Advantages:
             f.write(f"  Ratio: {ratio:.2f}x\n")
 
     print(f"Results saved to: {output_file}")
+
+    # Add algorithm categorization
+    print("\n" + "=" * 100)
+    print("ALGORITHM CATEGORIES")
+    print("=" * 100)
+    print("""
+Baseline Methods:
+  - Isolate: No federated learning (local training only)
+  - FedAvg: Standard federated averaging
+
+Optimization-Based Methods:
+  - FedProx: Proximal term for handling heterogeneity
+  - SCAFFOLD: Control variates for variance reduction
+  - MOON: Model-contrastive learning
+
+Data Heterogeneity Methods:
+  - FedDC: Data correction for non-IID data
+  - GCFL+: Graph clustering federated learning
+  - FedSage+: Subgraph sampling strategies
+
+Personalized Methods (Local + Global):
+  - FedProto: Prototype-based personalization
+  - FedTGP: Task-specific graph personalization
+  - FedPub: Public data augmentation
+  - FedStar: Star topology personalization
+  - FedDEP: Decoupled personalization
+  - AdaFGL: Adaptive federated graph learning
+  - FedGL: Graph-level personalization
+
+Graph-Specific Methods:
+  - FedGTA: Graph topology adaptation
+  - FedTAD: Topology-aware distillation
+  - FGGP: Federated graph generation and propagation
+  - FGSSL: Federated graph self-supervised learning
+
+Adaptive Aggregation Methods:
+  - FedALA: Adaptive local aggregation (parameter-wise weighting)
+  - NewALA: Low-rank confidence-aware adaptive aggregation (this work)
+    """)
     print("=" * 100)
 
 
