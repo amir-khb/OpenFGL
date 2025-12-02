@@ -2,10 +2,17 @@
 Example script to test the NewALA (LoRA-CAAA) implementation.
 
 This script demonstrates how to run the NewALA algorithm on a sample dataset.
+
+IMPORTANT: If you get an error about 'NodeClsTask' object has no attribute 'model',
+it means there's cached processed data from a previous run with different datasets.
+To fix this, delete the cached dataset directory:
+    rm -rf ./dataset/distrib/subgraph_fl_louvain_*
 """
 
 import openfgl.config as config
 from openfgl.flcore.trainer import FGLTrainer
+import os
+import shutil
 
 
 def main():
@@ -52,6 +59,13 @@ def main():
 
     # Enable debug mode
     args.debug = True
+
+    # Optional: Clear cached datasets to avoid conflicts
+    # Uncomment the following lines if you encounter model initialization errors
+    # cache_dir = f"{args.root}/distrib"
+    # if os.path.exists(cache_dir):
+    #     print(f"Clearing cache directory: {cache_dir}")
+    #     shutil.rmtree(cache_dir)
 
     print("=" * 80)
     print("Running NewALA (LoRA-CAAA) on Cora dataset")

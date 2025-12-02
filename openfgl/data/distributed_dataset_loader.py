@@ -72,8 +72,12 @@ class FGLDataset(Dataset):
             assert len(args.dataset) == 1, f"For subgraph-fl label skew simulation, only single dataset is supported."
         elif args.simulation_mode == "subgraph_fl_louvain_plus":
             assert len(args.dataset) == 1, f"For subgraph-fl louvain clustering simulation, only single dataset is supported."
+        elif args.simulation_mode == "subgraph_fl_louvain":
+            assert len(args.dataset) == 1, f"For subgraph-fl louvain simulation, only single dataset is supported."
         elif args.simulation_mode == "subgraph_fl_metis_plus":
             assert len(args.dataset) == 1, f"For subgraph-fl metis clustering simulation, only single dataset is supported."
+        elif args.simulation_mode == "subgraph_fl_metis":
+            assert len(args.dataset) == 1, f"For subgraph-fl metis simulation, only single dataset is supported."
             
         
     
