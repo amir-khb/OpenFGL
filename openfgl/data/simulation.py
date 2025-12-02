@@ -16,13 +16,33 @@ def get_subgraph_pyg_data(global_dataset, node_list):
     Extract a subgraph from the global dataset given a list of node indices.
 
     Args:
-        global_dataset (Data): The global graph dataset.
+        global_dataset (Dataset or Data): The global graph dataset (can be a PyG Dataset or Data object).
         node_list (list): List of node indices to include in the subgraph.
 
     Returns:
         Data: The subgraph containing the specified nodes and their edges.
     """
-    global_edge_index = global_dataset.edge_index
+    # Handle both Dataset (needs indexing) and Data (direct access) objects
+    if hasattr(global_dataset, '__getitem__') and not isinstance(global_dataset, torch.Tensor):
+        # This is a Dataset or list, get the Data object at index 0
+        try:
+            global_data = global_dataset[0]
+            # Try to get num_classes from the dataset
+            if hasattr(global_dataset, "num_classes"):
+                num_classes = global_dataset.num_classes
+            elif hasattr(global_data, "num_global_classes"):
+                num_classes = global_data.num_global_classes
+            else:
+                num_classes = None
+        except:
+            global_data = global_dataset
+            num_classes = getattr(global_dataset, "num_classes", getattr(global_dataset, "num_global_classes", None))
+    else:
+        # This is already a Data object
+        global_data = global_dataset
+        num_classes = getattr(global_dataset, "num_classes", getattr(global_dataset, "num_global_classes", None))
+
+    global_edge_index = global_data.edge_index
     node_id_set = set(node_list)
     global_id_to_local_id = {}
     local_id_to_global_id = {}
@@ -30,7 +50,7 @@ def get_subgraph_pyg_data(global_dataset, node_list):
     for local_id, global_id in enumerate(node_list):
         global_id_to_local_id[global_id] = local_id
         local_id_to_global_id[local_id] = global_id
-        
+
     for edge_id in tqdm(range(global_edge_index.shape[1]), desc="Processing Edge Mapping"):
         src = global_edge_index[0, edge_id].item()
         tgt = global_edge_index[1, edge_id].item()
@@ -38,17 +58,16 @@ def get_subgraph_pyg_data(global_dataset, node_list):
             local_id_src = global_id_to_local_id[src]
             local_id_tgt = global_id_to_local_id[tgt]
             local_edge_list.append((local_id_src, local_id_tgt))
-            
+
     local_edge_index = torch.tensor(local_edge_list).T
-    
-    
-    local_subgraph = Data(x=global_dataset.x[node_list], edge_index=local_edge_index, y=global_dataset.y[node_list])
+
+
+    local_subgraph = Data(x=global_data.x[node_list], edge_index=local_edge_index, y=global_data.y[node_list])
     local_subgraph.global_map = local_id_to_global_id
-    
-    if hasattr(global_dataset, "num_classes"):
-        local_subgraph.num_global_classes = global_dataset.num_classes
-    else:
-        local_subgraph.num_global_classes = global_dataset.num_global_classes
+
+    if num_classes is not None:
+        local_subgraph.num_global_classes = num_classes
+
     return local_subgraph
 
 
@@ -568,7 +587,7 @@ def subgraph_fl_louvain(args, global_dataset):
 
     local_data = []
     for client_id in range(args.num_clients):
-        local_subgraph = get_subgraph_pyg_data(global_dataset[0], owner_node_ids[client_id])
+        local_subgraph = get_subgraph_pyg_data(global_dataset, owner_node_ids[client_id])
         if local_subgraph.edge_index.dim() == 1:
             local_subgraph.edge_index, _ = torch_geometric.utils.add_random_edge(local_subgraph.edge_index.view(2,-1))
         local_data.append(local_subgraph)
