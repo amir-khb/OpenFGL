@@ -568,7 +568,7 @@ def subgraph_fl_louvain(args, global_dataset):
 
     local_data = []
     for client_id in range(args.num_clients):
-        local_subgraph = get_subgraph_pyg_data(global_dataset, owner_node_ids[client_id])
+        local_subgraph = get_subgraph_pyg_data(global_dataset[0], owner_node_ids[client_id])
         if local_subgraph.edge_index.dim() == 1:
             local_subgraph.edge_index, _ = torch_geometric.utils.add_random_edge(local_subgraph.edge_index.view(2,-1))
         local_data.append(local_subgraph)
