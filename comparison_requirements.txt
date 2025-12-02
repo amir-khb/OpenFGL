@@ -1,0 +1,24 @@
+# Requirements for running comparison scripts
+# Install with: pip install -r comparison_requirements.txt
+
+# Core dependencies
+torch>=1.9.0
+torch-geometric>=2.0.0
+torch-scatter
+torch-sparse
+torch-cluster
+torch-spline-conv
+
+# Data and analysis
+numpy>=1.19.0
+pandas>=1.2.0
+scipy>=1.5.0
+scikit-learn>=0.24.0
+
+# For complexity analysis (compare_methods_complexity.py)
+thop  # For FLOP counting
+prettytable  # For formatted tables
+
+# OpenFGL dependencies
+requests>=2.13.0
+networkx>=2.5.0
