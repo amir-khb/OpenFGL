@@ -17,7 +17,7 @@ supported_graph_fl_task = ["graph_cls", "graph_reg"]
 supported_subgraph_fl_task = ["node_cls", "link_pred", "node_clust"]
 
 
-supported_fl_algorithm = ["isolate", "fedavg", "fedprox", "scaffold", "moon", "feddc", "fedproto", "fedtgp", "fedpub", "fedstar", "fedgta", "fedtad", "gcfl_plus", "fedsage_plus", "adafgl", "feddep", "fggp", "fgssl", "fedgl", "fedala"]
+supported_fl_algorithm = ["isolate", "fedavg", "fedprox", "scaffold", "moon", "feddc", "fedproto", "fedtgp", "fedpub", "fedstar", "fedgta", "fedtad", "gcfl_plus", "fedsage_plus", "adafgl", "feddep", "fggp", "fgssl", "fedgl", "fedala", "newala"]
 
 
 supported_metrics = ["accuracy", "precision", "f1", "recall", "auc", "ap", "clustering_accuracy", "nmi", "ari"]
@@ -116,6 +116,20 @@ parser.add_argument("--ala_rand_percent", type=int, default=80,
                    help="Percentage of training data to sample for ALA")
 parser.add_argument("--ala_layer_idx", type=int, default=2,
                    help="Number of layers to apply ALA (from top)")
+
+# Add NewALA (LoRA-CAAA)-specific arguments
+parser.add_argument("--newala_eta", type=float, default=1.0,
+                   help="Learning rate for NewALA low-rank matrix optimization")
+parser.add_argument("--newala_rand_percent", type=int, default=80,
+                   help="Percentage of training data to sample for NewALA")
+parser.add_argument("--newala_layer_idx", type=int, default=2,
+                   help="Number of layers to apply NewALA (from top)")
+parser.add_argument("--newala_rank", type=int, default=4,
+                   help="Rank for low-rank decomposition in NewALA (r << min(m,n))")
+parser.add_argument("--newala_gamma", type=float, default=0.1,
+                   help="Sensitivity hyperparameter for confidence-aware gating in NewALA")
+parser.add_argument("--newala_lambda_reg", type=float, default=0.01,
+                   help="Regularization weight for entropy regularization in NewALA")
 
 
 

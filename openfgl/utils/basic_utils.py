@@ -122,6 +122,9 @@ def load_client(args, client_id, data, data_dir, message_pool, device):
         from openfgl.flcore.fedala.client import FedALAClient
         return FedALAClient(args, client_id, data, data_dir, message_pool, device)
     # --- END OF BLOCK ---
+    elif fl_algorithm == "newala":
+        from openfgl.flcore.newala.client import NewALAClient
+        return NewALAClient(args, client_id, data, data_dir, message_pool, device)
 
 
 def load_server(args, global_data, data_dir, message_pool, device):
@@ -188,6 +191,9 @@ def load_server(args, global_data, data_dir, message_pool, device):
         from openfgl.flcore.fedala.server import FedALAServer
         return FedALAServer(args, global_data, data_dir, message_pool, device)
     # --- END OF BLOCK ---
+    elif fl_algorithm == "newala":
+        from openfgl.flcore.newala.server import NewALAServer
+        return NewALAServer(args, global_data, data_dir, message_pool, device)
 
 
 def save_checkpoints(args, client_id, model, optim, round_):
