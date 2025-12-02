@@ -180,7 +180,7 @@ def main():
 
     # NewALA specific
     args.newala_layer_idx = 4
-    args.newala_rank = 4
+    args.newala_rank = 32
 
     print("=" * 80)
     print("FL Methods Complexity Comparison")

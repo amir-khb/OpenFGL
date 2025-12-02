@@ -98,7 +98,7 @@ def main():
     args = config.args
 
     # Common configuration
-    args.root = "./dataset"
+    args.root = "/home/amirreza/ScalableProject/OpenFGL/dataset"
     args.scenario = "subgraph_fl"
     args.simulation_mode = "subgraph_fl_louvain"
     args.task = "node_cls"
@@ -112,7 +112,7 @@ def main():
     args.optimizer = 'adam'
 
     # FL settings
-    args.num_clients = 5
+    args.num_clients = 10
     args.num_rounds = 100
     args.num_epochs = 3
     args.client_frac = 1.0
@@ -126,7 +126,7 @@ def main():
     args.newala_eta = 1.0
     args.newala_rand_percent = 80
     args.newala_layer_idx = 4  # Use all layers
-    args.newala_rank = 4
+    args.newala_rank = 64
     args.newala_gamma = 0.1
     args.newala_lambda_reg = 0.01
 
@@ -135,14 +135,14 @@ def main():
 
     # Datasets to test (subgraph FL compatible)
     datasets = [
-        "Cora",
-        "CiteSeer",
-        "PubMed",
-        "Photo",
-        "Computers",
-        # "ogbn-products",  # Very large, may take too long
-        "Chameleon",
-        "Actor",
+        # "Cora",
+        # "CiteSeer",
+        # "PubMed",
+        # "Photo",
+        # "Computers",
+        "ogbn-products",  # Very large, may take too long
+        # "Chameleon",
+        # "Actor",
         # "Amazon-ratings"  # May be large
     ]
 
