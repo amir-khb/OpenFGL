@@ -126,7 +126,7 @@ def main():
     args.newala_eta = 1.0
     args.newala_rand_percent = 80
     args.newala_layer_idx = 4  # Use all layers
-    args.newala_rank = 64
+    args.newala_rank = 32
     args.newala_gamma = 0.1
     args.newala_lambda_reg = 0.01
 
