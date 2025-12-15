@@ -21,7 +21,7 @@ class NewALAServer(BaseServer):
         """
         Initializes the NewALAServer.
 
-        Attributes:
+        Args:
             args (Namespace): Arguments containing model and training configurations.
             global_data (object): Global dataset accessible by the server.
             data_dir (str): Directory containing the data.
@@ -40,8 +40,8 @@ class NewALAServer(BaseServer):
         """
         with torch.no_grad():
             # Sum the number of samples from all sampled clients
-            num_tot_samples = sum([self.message_pool[f"client_{client_id}"]["num_samples"] for client_id in
-                                   self.message_pool[f"sampled_clients"]])
+            num_tot_samples = sum([self.message_pool[f"client_{client_id}"]["num_samples"]
+                                   for client_id in self.message_pool[f"sampled_clients"]])
 
             for it, client_id in enumerate(self.message_pool["sampled_clients"]):
                 # Get client's weight (num_samples / total_samples)
@@ -54,10 +54,10 @@ class NewALAServer(BaseServer):
                 for (local_param, global_param) in zip(client_params, self.task.model.parameters()):
                     if it == 0:
                         # For the first client, copy the weighted parameters
-                        global_param.data.copy_(weight * local_param)
+                        global_param.data.copy_(weight * local_param.data)
                     else:
                         # For subsequent clients, add the weighted parameters
-                        global_param.data += weight * local_param
+                        global_param.data += weight * local_param.data
 
     def send_message(self):
         """

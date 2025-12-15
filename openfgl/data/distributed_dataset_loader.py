@@ -127,6 +127,8 @@ class FGLDataset(Dataset):
             data.x = data.x.to(torch.float32)
         if hasattr(data, "y"):
             data.y = data.y.squeeze() # could be int64 (for classification) / float32 (for regression)
+        if hasattr(data, "edge_index") and data.edge_index is not None:
+            data.edge_index = data.edge_index.to(torch.int64)
         if hasattr(data, "edge_attr"):
             data.edge_index, data.edge_attr = remove_self_loops(*to_undirected(data.edge_index, data.edge_attr))
         else:
@@ -214,6 +216,8 @@ class FGLDataset(Dataset):
                     self.global_data.x = self.global_data.x.to(torch.float32)
                 if hasattr(self.global_data, "y"):
                     self.global_data.y = self.global_data.y.squeeze() # could be int64 (for classification) / float32 (for regression)
+                if hasattr(self.global_data, "edge_index") and self.global_data.edge_index is not None:
+                    self.global_data.edge_index = self.global_data.edge_index.to(torch.int64)
                 if hasattr(self.global_data, "edge_attr"):
                     self.global_data.edge_index, self.global_data.edge_attr = remove_self_loops(*to_undirected(self.global_data.edge_index, self.global_data.edge_attr))
                 else:

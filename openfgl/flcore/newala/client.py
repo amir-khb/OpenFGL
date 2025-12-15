@@ -182,10 +182,10 @@ class LoRA_CAAA:
                 U_r = U[:, :r]
                 V_r = Vt[:r, :].T
 
-                # Initialize A and B
+                # Initialize A and B with explicit device placement
                 sqrt_S = torch.sqrt(S_r)
-                A = V_r * sqrt_S.unsqueeze(0)  # (n, r)
-                B = U_r * sqrt_S.unsqueeze(0)  # (m, r)
+                A = (V_r * sqrt_S.unsqueeze(0)).to(self.device)  # (n, r)
+                B = (U_r * sqrt_S.unsqueeze(0)).to(self.device)  # (m, r)
             except:
                 # If SVD fails, use random initialization
                 A = torch.randn(n, r, device=self.device) * 0.01
@@ -251,7 +251,7 @@ class LoRA_CAAA:
                 # Check if parameter is 2D (weight matrix) or 1D (bias vector)
                 if param.dim() >= 2:
                     # For 2D+ parameters, use low-rank decomposition
-                    W_init = torch.ones_like(param.data).to(self.device)
+                    W_init = torch.ones_like(param.data)
                     A, B = self.low_rank_decomposition(W_init)
                     self.A_matrices.append(A)
                     self.B_matrices.append(B)
@@ -273,8 +273,8 @@ class LoRA_CAAA:
         cnt = 0
 
         while True:
-            # Create a random mask for this iteration
-            shuffled_indices = self.train_indices[torch.randperm(len(self.train_indices))]
+            # Create a random mask for this iteration with device specification
+            shuffled_indices = self.train_indices[torch.randperm(len(self.train_indices), device=self.device)]
             rand_indices = shuffled_indices[:rand_num]
             rand_mask = torch.zeros_like(self.train_mask, dtype=torch.bool)
             rand_mask[rand_indices] = True
