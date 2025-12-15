@@ -119,15 +119,15 @@ def main():
     # FedALA settings
     args.ala_eta = 1.0
     args.ala_rand_percent = 80
-    args.ala_layer_idx = 2  # Use all layers for fair comparison
+    args.ala_layer_idx = 4  # Use all layers for fair comparison
 
     # NewALA settings
     args.newala_eta = 1.0
     args.newala_rand_percent = 80
     args.newala_layer_idx = 4  # Use all layers
-    args.newala_rank = 128
-    args.newala_gamma = 0.1
-    args.newala_lambda_reg = 0.1
+    args.newala_rank = 32
+    args.newala_gamma = 0.05
+    args.newala_lambda_reg = 0.001
 
     # Enable logging
     args.debug = False

@@ -25,14 +25,14 @@ class LoRA_CAAA:
                  data_obj: 'torch_geometric.data.Data',
                  train_mask: torch.Tensor,
                  rand_percent: int,
-                 layer_idx: int = 0,
+                 layer_idx: int = 4,
                  eta: float = 1.0,
                  device: str = 'cpu',
                  threshold: float = 0.1,
                  num_pre_loss: int = 10,
-                 rank: int = 4,
-                 gamma: float = 0.1,
-                 lambda_reg: float = 0.01) -> None:
+                 rank: int = 32,
+                 gamma: float = 0.05,
+                 lambda_reg: float = 0.001) -> None:
         """
         Initialize the LoRA-CAAA module for GNN-compatible federated learning.
 
@@ -77,7 +77,7 @@ class LoRA_CAAA:
 
     def compute_entropy(self, logits: torch.Tensor, mask: torch.Tensor) -> float:
         """
-        Compute the batch entropy E(x) from model predictions.
+        Compute the normalized batch entropy E(x) from model predictions.
 
         E(x) = -1/N * Σ Σ p_k(x_i) log p_k(x_i)
 
@@ -86,7 +86,7 @@ class LoRA_CAAA:
             mask: Mask indicating which nodes to consider
 
         Returns:
-            Entropy value E(x)
+            Normalized entropy value E(x) in [0, 1]
         """
         # Get probability distribution
         probs = F.softmax(logits[mask], dim=1)
@@ -96,10 +96,14 @@ class LoRA_CAAA:
         log_probs = torch.log(probs + 1e-10)
         entropy = -torch.sum(probs * log_probs)
 
-        # Normalize by number of samples and classes
+        # Normalize by number of samples
         entropy = entropy / mask.sum().item()
 
-        return entropy.item()
+        # Normalize by log(num_classes) to get value in [0, 1]
+        num_classes = logits.size(1)
+        normalized_entropy = entropy / np.log(num_classes)
+
+        return normalized_entropy.item()
 
     def compute_trust_coefficient(self, entropy: float) -> float:
         """
@@ -111,12 +115,14 @@ class LoRA_CAAA:
         When entropy is low (model is confident), β → 1, allowing the update.
 
         Args:
-            entropy: Batch entropy E(x)
+            entropy: Normalized batch entropy E(x) in [0, 1]
 
         Returns:
-            Trust coefficient β ∈ (0, 1]
+            Trust coefficient β ∈ [0.1, 1.0]
         """
         beta = np.exp(-self.gamma * entropy)
+        # Add minimum threshold to prevent complete suppression
+        beta = max(beta, 0.1)  # Never suppress more than 90%
         return beta
 
     def compute_entropy_regularization(self, W_list: List[torch.Tensor]) -> torch.Tensor:
@@ -124,6 +130,8 @@ class LoRA_CAAA:
         Compute entropy regularization to prevent W from collapsing to binary values.
 
         R(W) = -Σ [W_ij log W_ij + (1 - W_ij) log(1 - W_ij)]
+
+        This regularization encourages weights to stay away from 0 and 1.
 
         Args:
             W_list: List of weight matrices (aggregation weights)
@@ -140,7 +148,7 @@ class LoRA_CAAA:
 
             # Binary cross-entropy style regularization
             reg = -(W_clamped * torch.log(W_clamped) +
-                   (1 - W_clamped) * torch.log(1 - W_clamped))
+                    (1 - W_clamped) * torch.log(1 - W_clamped))
 
             reg_loss += reg.sum()
 
@@ -155,22 +163,21 @@ class LoRA_CAAA:
         - B ∈ R^(m×r)
         where r << min(m, n)
 
+        Note: A · B^T gives (n×m), which is the transpose of W.
+        We'll transpose it back when applying.
+
         Args:
             W: Weight matrix to decompose
 
         Returns:
             Tuple of (A, B) matrices
         """
-        m, n = W.shape  # Note: W shape is actually the parameter shape
+        m, n = W.shape  # m=rows, n=cols of parameter
         r = min(self.rank, min(m, n))
-
-        # Use SVD to initialize A and B
-        # W = U S V^T, we can set A = V S^(1/2), B = U S^(1/2)
-        # Then A B^T = V S^(1/2) S^(1/2) U^T = V S U^T ≈ W (after taking top r components)
 
         with torch.no_grad():
             # Apply inverse sigmoid to W to initialize in the right space
-            # since W = σ(A·B^T), we want A·B^T ≈ σ^(-1)(W)
+            # since W = σ(A·B^T)^T, we want A·B^T ≈ σ^(-1)(W^T)
             W_clamped = torch.clamp(W, 0.01, 0.99)
             W_logit = torch.log(W_clamped / (1 - W_clamped))  # Inverse sigmoid
 
@@ -183,7 +190,7 @@ class LoRA_CAAA:
                 V_r = Vt[:r, :].T
 
                 # Initialize A and B with explicit device placement
-                sqrt_S = torch.sqrt(S_r)
+                sqrt_S = torch.sqrt(torch.abs(S_r) + 1e-10)  # Add abs and epsilon for stability
                 A = (V_r * sqrt_S.unsqueeze(0)).to(self.device)  # (n, r)
                 B = (U_r * sqrt_S.unsqueeze(0)).to(self.device)  # (m, r)
             except:
@@ -206,7 +213,7 @@ class LoRA_CAAA:
         1. Compute W = σ(A · B^T) (low-rank parameterization)
         2. Compute β = exp(-γ · E(x)) (confidence-aware gating)
         3. Initialize: θ_init = θ_l + β · [(θ_g - θ_l) ⊙ W]
-        4. Optimize: min_{A,B} (L_task(θ_init) - λ R(W))
+        4. Optimize: min_{A,B} (L_task(θ_init) + λ R(W))
 
         Args:
             global_model: The received global/aggregated model.
@@ -256,13 +263,14 @@ class LoRA_CAAA:
                     self.A_matrices.append(A)
                     self.B_matrices.append(B)
                 else:
-                    # For 1D parameters (biases), use scalar weights instead
-                    # Store None to indicate this parameter uses simple weighting
-                    self.A_matrices.append(None)
+                    # For 1D parameters (biases), use learnable scalar weight
+                    scalar_weight = torch.tensor([1.0], device=self.device, requires_grad=True)
+                    self.A_matrices.append(scalar_weight)
                     self.B_matrices.append(None)
 
-        # Create optimizer for A and B matrices (filter out None values for 1D parameters)
-        all_matrices = [m for m in (self.A_matrices + self.B_matrices) if m is not None]
+        # Create optimizer for A and B matrices (filter out None values)
+        all_matrices = [m for m in self.A_matrices if m is not None] + \
+                       [m for m in self.B_matrices if m is not None]
         optimizer = torch.optim.SGD(all_matrices, lr=self.eta) if all_matrices else None
 
         # Ensure data is on the correct device
@@ -288,20 +296,26 @@ class LoRA_CAAA:
             # Compute aggregation weights W = σ(A · B^T) and apply trust coefficient
             W_list = []
             for param, A, B in zip(params_p, self.A_matrices, self.B_matrices):
-                if A is not None and B is not None:
+                if B is not None:
                     # For 2D parameters: W = σ(A · B^T)
+                    # Note: A·B^T gives (n×m), we'll transpose when applying
                     W = torch.sigmoid(torch.matmul(A, B.T))
+                elif A is not None:
+                    # For 1D parameters with learnable scalar
+                    W = torch.sigmoid(A) * torch.ones_like(param.data).to(self.device)
                 else:
-                    # For 1D parameters: use uniform weights (fully trust the aggregation)
+                    # Fallback: uniform weights (fully trust the aggregation)
                     W = torch.ones_like(param.data).to(self.device)
                 W_list.append(W)
 
             # Update temp model parameters: θ_init = θ_l + β · [(θ_g - θ_l) ⊙ W]
-            for param_t, param, param_g, W in zip(params_tp, params_p, params_gp, W_list):
-                if param.dim() >= 2:
+            for param_t, param, param_g, W, B in zip(params_tp, params_p, params_gp, W_list, self.B_matrices):
+                if B is not None:
+                    # For 2D parameters, W needs transpose to match param shape
+                    # W is (n×m), param is (m×n), so use W.T
                     param_t.data = param.data + beta * ((param_g.data - param.data) * W.T)
                 else:
-                    # For 1D parameters, W is already the right shape
+                    # For 1D parameters, no transpose needed
                     param_t.data = param.data + beta * ((param_g.data - param.data) * W)
 
             # Compute task loss
@@ -311,13 +325,13 @@ class LoRA_CAAA:
             task_loss = self.loss(output[rand_mask], self.data_obj.y[rand_mask])
 
             # Compute entropy regularization (only for 2D parameters with A, B matrices)
-            W_list_2d = [W for W, A in zip(W_list, self.A_matrices) if A is not None]
+            W_list_2d = [W for W, B in zip(W_list, self.B_matrices) if B is not None]
             reg_loss = self.compute_entropy_regularization(W_list_2d) if W_list_2d else 0.0
 
-            # Total loss: L_task - λ R(W)
-            # Note: We want to maximize R(W), so we subtract it
+            # Total loss: L_task + λ R(W)
+            # Note: We ADD regularization to PENALIZE extreme values (0 or 1)
             if isinstance(reg_loss, torch.Tensor):
-                total_loss = task_loss - self.lambda_reg * reg_loss
+                total_loss = task_loss + self.lambda_reg * reg_loss
             else:
                 total_loss = task_loss
 
@@ -337,7 +351,7 @@ class LoRA_CAAA:
             # Train until convergence in the first phase
             if len(losses) > self.num_pre_loss and np.std(losses[-self.num_pre_loss:]) < self.threshold:
                 print(f'Client: {self.cid}\tStd: {np.std(losses[-self.num_pre_loss:]):.4f}\t'
-                      f'LoRA-CAAA epochs: {cnt}\tBeta: {beta:.4f}')
+                      f'LoRA-CAAA epochs: {cnt}\tBeta: {beta:.4f}\tEntropy: {entropy:.4f}')
                 break
 
         self.start_phase = False
@@ -350,12 +364,16 @@ class LoRA_CAAA:
             beta = self.compute_trust_coefficient(entropy)
 
             for param, param_g, A, B in zip(params_p, params_gp, self.A_matrices, self.B_matrices):
-                if A is not None and B is not None:
-                    # For 2D parameters: W = σ(A · B^T)
+                if B is not None:
+                    # For 2D parameters: W = σ(A · B^T), then transpose
                     W = torch.sigmoid(torch.matmul(A, B.T))
                     param.data = param.data + beta * ((param_g.data - param.data) * W.T)
+                elif A is not None:
+                    # For 1D parameters with learnable scalar
+                    W = torch.sigmoid(A) * torch.ones_like(param.data).to(self.device)
+                    param.data = param.data + beta * ((param_g.data - param.data) * W)
                 else:
-                    # For 1D parameters: use uniform weights
+                    # Fallback: uniform weights
                     W = torch.ones_like(param.data).to(self.device)
                     param.data = param.data + beta * ((param_g.data - param.data) * W)
 
@@ -412,7 +430,7 @@ class NewALAClient(BaseClient):
         Executes the client-side logic for NewALA (LoRA-CAAA):
         1. Receives the global model.
         2. Performs LoRA-CAAA aggregation to initialize the local model.
-        3. Trains the local model using the task's standard training method.
+        3. Trains the model locally using the task's standard training method.
         """
 
         # 1. Receive global model parameters from the server
