@@ -331,7 +331,7 @@ class LoRA_CAAA:
             # Total loss: L_task + λ R(W)
             # Note: We ADD regularization to PENALIZE extreme values (0 or 1)
             if isinstance(reg_loss, torch.Tensor):
-                total_loss = task_loss + self.lambda_reg * reg_loss
+                total_loss = task_loss - self.lambda_reg * reg_loss
             else:
                 total_loss = task_loss
 

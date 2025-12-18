@@ -40,9 +40,9 @@ def analyze_parameters():
     args.root = "/home/amirreza/ScalableProject/OpenFGL/dataset"
     args.scenario = "subgraph_fl"
     args.simulation_mode = "subgraph_fl_louvain"
-    args.num_clients = 5
+    args.num_clients = 10
     args.task = "node_cls"
-    args.dataset = ["Cora"]
+    args.dataset = ["PubMed"]
     args.model = ["gcn"]
     args.hid_dim = 64
     args.num_layers = 2
@@ -129,7 +129,7 @@ def run_rank_comparison():
     args.simulation_mode = "subgraph_fl_louvain"
     args.num_clients = 5
     args.task = "node_cls"
-    args.dataset = ["Cora"]
+    args.dataset = ["PubMed"]
     args.model = ["gcn"]
     args.metrics = ["accuracy"]
     args.num_rounds = 50
@@ -145,8 +145,8 @@ def run_rank_comparison():
     args.newala_layer_idx = 4  # All layers
     args.newala_eta = 1.0
     args.newala_rand_percent = 80
-    args.newala_gamma = 0.1
-    args.newala_lambda_reg = 0.01
+    args.newala_gamma = 0.01
+    args.newala_lambda_reg = 0.001
 
     args.seed = 2024
     args.debug = False
