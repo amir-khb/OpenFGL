@@ -1,18 +1,10 @@
 """
-Comprehensive comparison of FedALA vs NewALA across different client counts.
+NewALA Single-Configuration Analysis (10 Clients).
 
 This script:
-1. Runs both FedALA and NewALA with varying numbers of clients (5, 10, 20, 50, 100)
-2. Tracks training time, testing time, and accuracy
-3. Saves results to CSV and formatted tables
-4. Provides statistical analysis and scalability insights
-
-Results include:
-- Test accuracy (mean ± std over multiple runs)
-- Training time per round
-- Total training time
-- Testing time
-- Scalability metrics
+1. Runs NewALA with exactly 10 clients on specified datasets.
+2. Tracks training time, testing time, and accuracy.
+3. Saves results to CSV and formatted tables.
 """
 
 import torch
@@ -94,7 +86,7 @@ def run_experiment(args, algorithm, num_clients, dataset, run_id):
 
 
 def main():
-    """Main comparison function."""
+    """Main execution function."""
     args = config.args
 
     # Common configuration
@@ -105,7 +97,7 @@ def main():
     args.metrics = ["accuracy"]
     args.model = ["gcn"]
     args.hid_dim = 64
-    args.num_layers = 4
+    args.num_layers = 2
     args.dropout = 0.5
     args.lr = 1e-2
     args.weight_decay = 5e-4
@@ -115,11 +107,6 @@ def main():
     args.num_rounds = 100
     args.num_epochs = 3
     args.client_frac = 1.0
-
-    # FedALA settings
-    args.ala_eta = 1.0
-    args.ala_rand_percent = 80
-    args.ala_layer_idx = 4  # Use all layers for fair comparison
 
     # NewALA settings
     args.newala_eta = 1.0
@@ -132,14 +119,24 @@ def main():
     # Enable logging
     args.debug = False
 
-    # Dataset to use (you can change this)
-    dataset = "Cora"  # Change to your preferred dataset
+    # Datasets to iterate over
+    datasets = [
+        "Cora",
+        "CiteSeer",
+        "PubMed",
+        "Photo",
+        "Computers",
+        "ogbn-products",
+        "Chameleon",
+        "Actor",
+        "Amazon-ratings"
+    ]
 
-    # Client counts to test
-    client_counts = [5,10,15,20,25,30]
+    # Fixed Client Count
+    client_counts = [10]
 
-    # Algorithms to compare
-    algorithms = ["fedala", "newala"]
+    # Algorithm fixed to NewALA
+    algorithm = "newala"
 
     # Number of runs for statistical significance
     num_runs = 3
@@ -148,26 +145,26 @@ def main():
     all_results = []
 
     # Output directory
-    output_dir = f"scalability_comparison_{dataset}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    output_dir = f"newala_10clients_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     os.makedirs(output_dir, exist_ok=True)
 
     print("="*80)
-    print("FEDALA vs NEWALA CLIENT SCALABILITY COMPARISON")
+    print("NEWALA FIXED CLIENT ANALYSIS (10 Clients)")
     print("="*80)
-    print(f"Dataset: {dataset}")
-    print(f"Client counts: {client_counts}")
-    print(f"Algorithms: {len(algorithms)}")
+    print(f"Datasets: {datasets}")
+    print(f"Client count: {client_counts[0]}")
+    print(f"Algorithm: {algorithm.upper()}")
     print(f"Runs per configuration: {num_runs}")
-    print(f"Total experiments: {len(client_counts) * len(algorithms) * num_runs}")
+    print(f"Total experiments: {len(datasets) * len(client_counts) * num_runs}")
     print(f"Output directory: {output_dir}")
     print("="*80)
 
     # Run all experiments
-    total_experiments = len(client_counts) * len(algorithms) * num_runs
+    total_experiments = len(datasets) * len(client_counts) * num_runs
     current_experiment = 0
 
-    for num_clients in client_counts:
-        for algorithm in algorithms:
+    for dataset in datasets:
+        for num_clients in client_counts:
             for run_id in range(num_runs):
                 current_experiment += 1
                 print(f"\n{'#'*80}")
@@ -183,7 +180,7 @@ def main():
                     df.to_csv(os.path.join(output_dir, "intermediate_results.csv"), index=False)
 
                 except Exception as e:
-                    print(f"\n!!! ERROR in {algorithm} with {num_clients} clients (run {run_id}): {e}")
+                    print(f"\n!!! ERROR in {algorithm} on {dataset} with {num_clients} clients (run {run_id}): {e}")
                     import traceback
                     traceback.print_exc()
                     continue
@@ -199,17 +196,18 @@ def main():
     print("COMPUTING STATISTICS")
     print("="*80)
 
-    # Group by algorithm and client count
+    # Group by dataset and client count
     summary_stats = []
 
-    for num_clients in client_counts:
-        for algorithm in algorithms:
-            subset = df[(df['num_clients'] == num_clients) & (df['algorithm'] == algorithm)]
+    for dataset in datasets:
+        for num_clients in client_counts:
+            subset = df[(df['num_clients'] == num_clients) & (df['dataset'] == dataset)]
 
             if len(subset) == 0:
                 continue
 
             stats = {
+                'Dataset': dataset,
                 'Clients': num_clients,
                 'Algorithm': algorithm.upper(),
                 'Test Acc (%)': f"{subset['test_accuracy'].mean():.2f} ± {subset['test_accuracy'].std():.2f}",
@@ -217,7 +215,6 @@ def main():
                 'Best Round': f"{subset['best_round'].mean():.1f}",
                 'Total Time (s)': f"{subset['total_train_time'].mean():.2f} ± {subset['total_train_time'].std():.2f}",
                 'Time/Round (s)': f"{subset['avg_time_per_round'].mean():.3f}",
-                'Test Time (s)': f"{subset['test_time'].mean():.3f}",
                 'Runs': len(subset)
             }
             summary_stats.append(stats)
@@ -227,125 +224,32 @@ def main():
     # Save summary
     summary_df.to_csv(os.path.join(output_dir, "summary_stats.csv"), index=False)
 
-    # Create comparison table (side-by-side for each client count)
-    print("\n" + "="*80)
-    print("GENERATING COMPARISON TABLES")
-    print("="*80)
-
-    comparison_rows = []
-
-    for num_clients in client_counts:
-        fedala_data = df[(df['num_clients'] == num_clients) & (df['algorithm'] == 'fedala')]
-        newala_data = df[(df['num_clients'] == num_clients) & (df['algorithm'] == 'newala')]
-
-        if len(fedala_data) == 0 or len(newala_data) == 0:
-            continue
-
-        # Calculate improvements
-        acc_improvement = newala_data['test_accuracy'].mean() - fedala_data['test_accuracy'].mean()
-        time_ratio = fedala_data['total_train_time'].mean() / newala_data['total_train_time'].mean()
-
-        row = {
-            'Clients': num_clients,
-            'FedALA Acc (%)': f"{fedala_data['test_accuracy'].mean():.2f}±{fedala_data['test_accuracy'].std():.2f}",
-            'NewALA Acc (%)': f"{newala_data['test_accuracy'].mean():.2f}±{newala_data['test_accuracy'].std():.2f}",
-            'Acc Diff': f"{acc_improvement:+.2f}%",
-            'FedALA Time (s)': f"{fedala_data['total_train_time'].mean():.1f}±{fedala_data['total_train_time'].std():.1f}",
-            'NewALA Time (s)': f"{newala_data['total_train_time'].mean():.1f}±{newala_data['total_train_time'].std():.1f}",
-            'Time Ratio': f"{time_ratio:.2f}x",
-        }
-        comparison_rows.append(row)
-
-    comparison_df = pd.DataFrame(comparison_rows)
-    comparison_df.to_csv(os.path.join(output_dir, "comparison_table.csv"), index=False)
-
-    # Scalability analysis
-    print("\n" + "="*80)
-    print("SCALABILITY ANALYSIS")
-    print("="*80)
-
-    scalability_rows = []
-    for algorithm in algorithms:
-        algo_data = df[df['algorithm'] == algorithm].groupby('num_clients').agg({
-            'test_accuracy': ['mean', 'std'],
-            'total_train_time': ['mean', 'std'],
-            'avg_time_per_round': ['mean', 'std']
-        }).reset_index()
-
-        for _, row in algo_data.iterrows():
-            scalability_rows.append({
-                'Algorithm': algorithm.upper(),
-                'Clients': row['num_clients'],
-                'Accuracy': f"{row[('test_accuracy', 'mean')]:.2f}±{row[('test_accuracy', 'std')]:.2f}",
-                'Total Time': f"{row[('total_train_time', 'mean')]:.1f}±{row[('total_train_time', 'std')]:.1f}",
-                'Time/Round': f"{row[('avg_time_per_round', 'mean')]:.3f}±{row[('avg_time_per_round', 'std')]:.3f}"
-            })
-
-    scalability_df = pd.DataFrame(scalability_rows)
-    scalability_df.to_csv(os.path.join(output_dir, "scalability_analysis.csv"), index=False)
-
     # Print results
     print("\n" + "="*80)
     print("SUMMARY STATISTICS")
     print("="*80)
     print(summary_df.to_string(index=False))
 
-    print("\n" + "="*80)
-    print("HEAD-TO-HEAD COMPARISON")
-    print("="*80)
-    print(comparison_df.to_string(index=False))
-
-    print("\n" + "="*80)
-    print("SCALABILITY ANALYSIS")
-    print("="*80)
-    print(scalability_df.to_string(index=False))
-
     # Overall statistics
     print("\n" + "="*80)
     print("OVERALL STATISTICS")
     print("="*80)
 
-    fedala_overall = df[df['algorithm'] == 'fedala']
-    newala_overall = df[df['algorithm'] == 'newala']
-
-    print(f"\nFedALA (across all client counts):")
-    print(f"  Average Test Accuracy: {fedala_overall['test_accuracy'].mean():.2f}% ± {fedala_overall['test_accuracy'].std():.2f}%")
-    print(f"  Average Training Time: {fedala_overall['total_train_time'].mean():.2f}s ± {fedala_overall['total_train_time'].std():.2f}s")
-    print(f"  Average Time/Round: {fedala_overall['avg_time_per_round'].mean():.3f}s ± {fedala_overall['avg_time_per_round'].std():.3f}s")
-
-    print(f"\nNewALA (across all client counts):")
-    print(f"  Average Test Accuracy: {newala_overall['test_accuracy'].mean():.2f}% ± {newala_overall['test_accuracy'].std():.2f}%")
-    print(f"  Average Training Time: {newala_overall['total_train_time'].mean():.2f}s ± {newala_overall['total_train_time'].std():.2f}s")
-    print(f"  Average Time/Round: {newala_overall['avg_time_per_round'].mean():.3f}s ± {newala_overall['avg_time_per_round'].std():.3f}s")
-
-    print(f"\nOverall Comparison:")
-    print(f"  Accuracy Improvement: {newala_overall['test_accuracy'].mean() - fedala_overall['test_accuracy'].mean():+.2f}%")
-    print(f"  Time Ratio (FedALA/NewALA): {fedala_overall['total_train_time'].mean() / newala_overall['total_train_time'].mean():.2f}x")
-
-    # Scalability insights
-    print(f"\nScalability Insights:")
-
-    for algorithm in algorithms:
-        algo_data = df[df['algorithm'] == algorithm].groupby('num_clients')['total_train_time'].mean()
-        if len(algo_data) > 1:
-            time_growth = (algo_data.iloc[-1] - algo_data.iloc[0]) / algo_data.iloc[0] * 100
-            print(f"  {algorithm.upper()}: Training time increased by {time_growth:.1f}% from {client_counts[0]} to {client_counts[-1]} clients")
-
-        algo_acc = df[df['algorithm'] == algorithm].groupby('num_clients')['test_accuracy'].mean()
-        if len(algo_acc) > 1:
-            acc_change = algo_acc.iloc[-1] - algo_acc.iloc[0]
-            print(f"  {algorithm.upper()}: Accuracy changed by {acc_change:+.2f}% from {client_counts[0]} to {client_counts[-1]} clients")
+    print(f"\nNewALA Overall Performance (10 Clients):")
+    print(f"  Average Test Accuracy: {df['test_accuracy'].mean():.2f}% ± {df['test_accuracy'].std():.2f}%")
+    print(f"  Average Training Time: {df['total_train_time'].mean():.2f}s ± {df['total_train_time'].std():.2f}s")
+    print(f"  Average Time/Round: {df['avg_time_per_round'].mean():.3f}s ± {df['avg_time_per_round'].std():.3f}s")
 
     # Save formatted report
     report_path = os.path.join(output_dir, "report.txt")
     with open(report_path, 'w') as f:
         f.write("="*80 + "\n")
-        f.write("FEDALA vs NEWALA CLIENT SCALABILITY COMPARISON REPORT\n")
+        f.write("NEWALA 10-CLIENT ANALYSIS REPORT\n")
         f.write("="*80 + "\n\n")
 
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Dataset: {dataset}\n")
-        f.write(f"Client counts tested: {client_counts}\n")
+        f.write(f"Datasets: {datasets}\n")
+        f.write(f"Client count: {client_counts[0]}\n")
         f.write(f"Number of runs per config: {num_runs}\n")
         f.write(f"Total experiments: {len(df)}\n\n")
 
@@ -355,53 +259,21 @@ def main():
         f.write(summary_df.to_string(index=False) + "\n\n")
 
         f.write("="*80 + "\n")
-        f.write("HEAD-TO-HEAD COMPARISON\n")
-        f.write("="*80 + "\n")
-        f.write(comparison_df.to_string(index=False) + "\n\n")
-
-        f.write("="*80 + "\n")
-        f.write("SCALABILITY ANALYSIS\n")
-        f.write("="*80 + "\n")
-        f.write(scalability_df.to_string(index=False) + "\n\n")
-
-        f.write("="*80 + "\n")
         f.write("OVERALL STATISTICS\n")
         f.write("="*80 + "\n")
-        f.write(f"\nFedALA (across all client counts):\n")
-        f.write(f"  Average Test Accuracy: {fedala_overall['test_accuracy'].mean():.2f}% ± {fedala_overall['test_accuracy'].std():.2f}%\n")
-        f.write(f"  Average Training Time: {fedala_overall['total_train_time'].mean():.2f}s ± {fedala_overall['total_train_time'].std():.2f}s\n")
-        f.write(f"\nNewALA (across all client counts):\n")
-        f.write(f"  Average Test Accuracy: {newala_overall['test_accuracy'].mean():.2f}% ± {newala_overall['test_accuracy'].std():.2f}%\n")
-        f.write(f"  Average Training Time: {newala_overall['total_train_time'].mean():.2f}s ± {newala_overall['total_train_time'].std():.2f}s\n")
-        f.write(f"\nOverall Comparison:\n")
-        f.write(f"  Accuracy Improvement: {newala_overall['test_accuracy'].mean() - fedala_overall['test_accuracy'].mean():+.2f}%\n")
-        f.write(f"  Time Ratio: {fedala_overall['total_train_time'].mean() / newala_overall['total_train_time'].mean():.2f}x\n\n")
-
-        f.write("="*80 + "\n")
-        f.write("SCALABILITY INSIGHTS\n")
-        f.write("="*80 + "\n")
-        for algorithm in algorithms:
-            algo_data = df[df['algorithm'] == algorithm].groupby('num_clients')['total_train_time'].mean()
-            if len(algo_data) > 1:
-                time_growth = (algo_data.iloc[-1] - algo_data.iloc[0]) / algo_data.iloc[0] * 100
-                f.write(f"{algorithm.upper()}: Training time increased by {time_growth:.1f}% from {client_counts[0]} to {client_counts[-1]} clients\n")
-
-            algo_acc = df[df['algorithm'] == algorithm].groupby('num_clients')['test_accuracy'].mean()
-            if len(algo_acc) > 1:
-                acc_change = algo_acc.iloc[-1] - algo_acc.iloc[0]
-                f.write(f"{algorithm.upper()}: Accuracy changed by {acc_change:+.2f}% from {client_counts[0]} to {client_counts[-1]} clients\n")
+        f.write(f"\nNewALA Overall (10 Clients):\n")
+        f.write(f"  Average Test Accuracy: {df['test_accuracy'].mean():.2f}% ± {df['test_accuracy'].std():.2f}%\n")
+        f.write(f"  Average Training Time: {df['total_train_time'].mean():.2f}s ± {df['total_train_time'].std():.2f}s\n\n")
 
     print(f"\n{'='*80}")
     print(f"Results saved to: {output_dir}/")
     print(f"  - raw_results.csv: All individual run results")
     print(f"  - summary_stats.csv: Aggregated statistics")
-    print(f"  - comparison_table.csv: Head-to-head comparison")
-    print(f"  - scalability_analysis.csv: Scalability metrics")
     print(f"  - report.txt: Formatted text report")
     print(f"{'='*80}")
 
-    return df, summary_df, comparison_df, scalability_df
+    return df, summary_df
 
 
 if __name__ == "__main__":
-    df, summary_df, comparison_df, scalability_df = main()
+    df, summary_df = main()
